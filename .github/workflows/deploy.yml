@@ -52,19 +52,21 @@ jobs:
         id: ecr-password
         run: echo "password=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})" >> $GITHUB_OUTPUT
 
-      - name: Desplegar en EC2
+      - name: Desplegar en EC2 backend
         uses: appleboy/ssh-action@v1.0.3
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_PASSWORD: ${{ steps.ecr-password.outputs.password }}
           ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
           CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
+          DB_PRIVATE_IP: ${{ secrets.DB_PRIVATE_IP }}
+          DB_PORT: "3307"
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          envs: ECR_REGISTRY,ECR_PASSWORD,ECR_REPOSITORY,CONTAINER_NAME
+          envs: ECR_REGISTRY,ECR_PASSWORD,ECR_REPOSITORY,CONTAINER_NAME,DB_PRIVATE_IP,DB_PORT
           script: |
             echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin $ECR_REGISTRY
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -72,11 +74,10 @@ jobs:
             docker rm $CONTAINER_NAME || true
             docker run -d \
               --name $CONTAINER_NAME \
-              --network innovatech-network \
               -p 8082:8081 \
-              -e DB_HOST=db-despachos \
-              -e DB_ENDPOINT=db-despachos \
-              -e DB_PORT=3306 \
+              -e DB_HOST=$DB_PRIVATE_IP \
+              -e DB_ENDPOINT=$DB_PRIVATE_IP \
+              -e DB_PORT=$DB_PORT \
               -e DB_NAME=despachos_db \
               -e DB_USERNAME=root \
               -e DB_PASSWORD=root \

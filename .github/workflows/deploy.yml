@@ -69,14 +69,23 @@ jobs:
           envs: ECR_REGISTRY,ECR_PASSWORD,ECR_REPOSITORY,CONTAINER_NAME,DB_PRIVATE_IP,DB_PORT
           script: |
             echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin $ECR_REGISTRY
+            HOST_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+            DB_HOST="${DB_PRIVATE_IP:-$HOST_IP}"
+            docker start mysql-ventas 2>/dev/null || true
+            docker start mysql-despachos 2>/dev/null || true
+            echo "Esperando MySQL puerto $DB_PORT..."
+            for i in $(seq 1 40); do
+              (echo >/dev/tcp/127.0.0.1/$DB_PORT) >/dev/null 2>&1 && break
+              sleep 3
+            done
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
             docker stop $CONTAINER_NAME || true
             docker rm $CONTAINER_NAME || true
             docker run -d \
               --name $CONTAINER_NAME \
               -p 8082:8081 \
-              -e DB_HOST=$DB_PRIVATE_IP \
-              -e DB_ENDPOINT=$DB_PRIVATE_IP \
+              -e DB_HOST=$DB_HOST \
+              -e DB_ENDPOINT=$DB_HOST \
               -e DB_PORT=$DB_PORT \
               -e DB_NAME=despachos_db \
               -e DB_USERNAME=root \

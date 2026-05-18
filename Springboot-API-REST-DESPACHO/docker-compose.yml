@@ -1,0 +1,39 @@
+services:
+  backend-despachos:
+    build: .
+    image: innovatech-backend-despachos:local
+    ports:
+      - "8082:8081"
+    environment:
+      DB_HOST: db-despachos
+      DB_ENDPOINT: db-despachos
+      DB_PORT: 3306
+      DB_NAME: despachos_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    depends_on:
+      db-despachos:
+        condition: service_healthy
+    networks:
+      - despachos-net
+
+  db-despachos:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: despachos_db
+    volumes:
+      - despachos-data-local:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - despachos-net
+
+volumes:
+  despachos-data-local:
+
+networks:
+  despachos-net:
